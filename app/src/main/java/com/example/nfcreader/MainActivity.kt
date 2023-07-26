@@ -27,7 +27,9 @@ class MainActivity : AppCompatActivity(), CompoundButton.OnCheckedChangeListener
         binder?.viewModel = viewModel
         binder?.lifecycleOwner = this@MainActivity
         super.onCreate(savedInstanceState)
+
         binder?.toggleButton?.setOnCheckedChangeListener(this@MainActivity)
+
         Coroutines.main(this@MainActivity) { scope ->
             scope.launch(block = {
                 binder?.viewModel?.observeNFCStatus()?.collectLatest(action = { status ->
@@ -35,8 +37,7 @@ class MainActivity : AppCompatActivity(), CompoundButton.OnCheckedChangeListener
                     if (status == NFCStatus.NoOperation) NFCManager.disableReaderMode(
                         this@MainActivity,
                         this@MainActivity
-                    )
-                    else if (status == NFCStatus.Tap) NFCManager.enableReaderMode(
+                    ) else if (status == NFCStatus.Tap) NFCManager.enableReaderMode(
                         this@MainActivity,
                         this@MainActivity,
                         this@MainActivity,

@@ -59,67 +59,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getExtras() : Bundle {
-        val options : Bundle = Bundle();
+        val options = Bundle();
         options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 30000);
         return options
     }
     //region NFC Methods
-    fun onCheckNFC(isChecked : Boolean) { Coroutines.io(this@MainViewModel) {
-        Log.d(TAG, "onCheckNFC(${isChecked})")
-        if (isChecked) {
-            postNFCStatus(NFCStatus.Tap)
-        } else {
-            postNFCStatus(NFCStatus.NoOperation)
-            postToast("NFC is Disabled, Please Toggle On!")
+    fun onCheckNFC(isChecked : Boolean) {
+        Coroutines.io(this@MainViewModel) {
+            Log.d(TAG, "onCheckNFC(${isChecked})")
+            if (isChecked) {
+                postNFCStatus(NFCStatus.Tap)
+            } else {
+                postNFCStatus(NFCStatus.NoOperation)
+                postToast("NFC is Disabled, Please Toggle On!")
+            }
         }
-    }
     }
 
-    fun readTag(tag : Tag?) { Coroutines.default(this@MainViewModel) {
-        Log.d(TAG, "readTag(${tag} ${tag?.techList})")
-        postNFCStatus(NFCStatus.Process)
-        val stringBuilder: StringBuilder = StringBuilder()
-        val id: ByteArray? = tag?.id
-        stringBuilder.append("Tag ID (hex): ${getHex(id!!)} \n")
-        stringBuilder.append("Tag ID (dec): ${getDec(id)} \n")
-        stringBuilder.append("Tag ID (reversed): ${getReversed(id)} \n")
-        stringBuilder.append("Technologies: ")
-        tag.techList.forEach { tech ->
-            stringBuilder.append(tech.substring(prefix.length))
-            stringBuilder.append(", ")
-        }
-        stringBuilder.delete(stringBuilder.length - 2, stringBuilder.length)
-        tag.techList.forEach { tech ->
-            if (tech.equals(MifareClassic::class.java.name)) {
-                stringBuilder.append('\n')
-                val mifareTag: MifareClassic = MifareClassic.get(tag)
-                val type: String
-                if (mifareTag.type == MifareClassic.TYPE_CLASSIC) type = "Classic"
-                else if (mifareTag.type == MifareClassic.TYPE_PLUS) type = "Plus"
-                else if (mifareTag.type == MifareClassic.TYPE_PRO) type = "Pro"
-                else type = "Unknown"
-                stringBuilder.append("Mifare Classic type: $type \n")
-                stringBuilder.append("Mifare size: ${mifareTag.size} bytes \n")
-                stringBuilder.append("Mifare sectors: ${mifareTag.sectorCount} \n")
-                stringBuilder.append("Mifare blocks: ${mifareTag.blockCount}")
+    fun readTag(tag : Tag?) {
+
+        Coroutines.default(this@MainViewModel) {
+            Log.d(TAG, "readTag(${tag} ${tag?.techList})")
+            postNFCStatus(NFCStatus.Process)
+            val stringBuilder: StringBuilder = StringBuilder()
+            val id: ByteArray? = tag?.id
+            stringBuilder.append("Tag ID (hex): ${getHex(id!!)} \n")
+            stringBuilder.append("Tag ID (dec): ${getDec(id)} \n")
+            stringBuilder.append("Tag ID (reversed): ${getReversed(id)} \n")
+            stringBuilder.append("Technologies: ")
+            tag.techList.forEach { tech ->
+                stringBuilder.append(tech.substring(prefix.length))
+                stringBuilder.append(", ")
             }
-            if (tech.equals(MifareUltralight::class.java.name)) {
-                stringBuilder.append('\n');
-                val mifareUlTag: MifareUltralight = MifareUltralight.get(tag);
-                val type: String
-                if (mifareUlTag.type == MifareUltralight.TYPE_ULTRALIGHT) type = "Ultralight"
-                else if (mifareUlTag.type == MifareUltralight.TYPE_ULTRALIGHT_C) type =
-                    "Ultralight C"
-                else type = "Unkown"
-                stringBuilder.append("Mifare Ultralight type: ");
-                stringBuilder.append(type)
+            stringBuilder.delete(stringBuilder.length - 2, stringBuilder.length)
+            tag.techList.forEach { tech ->
+                if (tech.equals(MifareClassic::class.java.name)) {
+                    stringBuilder.append('\n')
+                    val mifareTag: MifareClassic = MifareClassic.get(tag)
+                    val type: String = when (mifareTag.type) {
+                        MifareClassic.TYPE_CLASSIC -> "Classic"
+                        MifareClassic.TYPE_PLUS -> "Plus"
+                        MifareClassic.TYPE_PRO -> "Pro"
+                        else -> "Unknown"
+                    }
+                    stringBuilder.append("Mifare Classic type: $type \n")
+                    stringBuilder.append("Mifare size: ${mifareTag.size} bytes \n")
+                    stringBuilder.append("Mifare sectors: ${mifareTag.sectorCount} \n")
+                    stringBuilder.append("Mifare blocks: ${mifareTag.blockCount}")
+                }
+                if (tech.equals(MifareUltralight::class.java.name)) {
+                    stringBuilder.append('\n');
+                    val mifareUlTag: MifareUltralight = MifareUltralight.get(tag);
+                    val type: String = when (mifareUlTag.type) {
+                        MifareUltralight.TYPE_ULTRALIGHT -> "Ultralight"
+                        MifareUltralight.TYPE_ULTRALIGHT_C -> "Ultralight C"
+                        else -> "Unkown"
+                    }
+                    stringBuilder.append("Mifare Ultralight type: ");
+                    stringBuilder.append(type)
+                }
             }
+            Log.d(TAG, "Datum: $stringBuilder")
+            Log.d(ContentValues.TAG, "dumpTagData Return \n $stringBuilder")
+            postNFCStatus(NFCStatus.Read)
+            liveTag.emit("${getDateTimeNow()} \n $stringBuilder")
         }
-        Log.d(TAG, "Datum: $stringBuilder")
-        Log.d(ContentValues.TAG, "dumpTagData Return \n $stringBuilder")
-        postNFCStatus(NFCStatus.Read)
-        liveTag.emit("${getDateTimeNow()} \n ${stringBuilder}")
-    }
+
     }
 
     fun updateNFCStatus(status : NFCStatus) {
@@ -128,7 +133,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun postNFCStatus(status : NFCStatus) { Log.d(TAG, "postNFCStatus(${status})")
+    private suspend fun postNFCStatus(status : NFCStatus) {
+        Log.d(TAG, "postNFCStatus(${status})")
         if (NFCManager.isSupportedAndEnabled(getApplication())) {
             liveNFC.emit(status)
         }
